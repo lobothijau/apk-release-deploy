@@ -343,7 +343,7 @@ if __name__ == '__main__':
         if file_url == None:
             exit(DROPBOX_ERROR_CODE)
     else:
-        message = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder)
+        folder_url = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder)
         if folder_url == None:
             exit(DROPBOX_ERROR_CODE)
     
