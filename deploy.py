@@ -328,8 +328,6 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
-    print(options.dropbox_upload_folder)
-
     if (options.dropbox_upload_folder == None):
         # Extract app version and file
         app_version, app_file = get_app(options.release_dir)
@@ -362,3 +360,5 @@ if __name__ == '__main__':
         # Send email with release data
         if not send_email(options.zapier_hook, options.email_to, subject, body):
             exit(ZAPIER_ERROR_CODE)
+
+    exit()
