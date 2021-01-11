@@ -104,6 +104,78 @@ def upload_to_dropbox(target_file_name, source_file, dropbox_token, dropbox_fold
     # Replace the '0' at the end of the url with '1' for direct download
     return re.sub('dl=.*', 'raw=1', r.json()['url'])
 
+def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
+    '''Upload file to dropbox
+    
+    Args:
+        source_folder (str): Folder path where all the files be uploaded.
+        dropbox_token (str): Dropbox API key.
+        dropbox_folder (str): Dropbox target folder.
+
+    Returns:
+        str: Shared url for download.
+    '''
+
+    dropbox_base_path = '/{folder}/'.format(folder=dropbox_folder)
+    # TODO: delete files (is it necessary?)
+    # # Try to delete the file before upload
+    # # It's possible to overwrite but this way is cleaner
+    # DROPBOX_DELETE_DATA['path'] = dropbox_folder
+    # headers = {'Authorization': 'Bearer ' + dropbox_token,
+    #         'Content-Type': 'application/json'}
+
+    # delete_request = requests.post(DROPBOX_DELETE_URL, data=json.dumps(DROPBOX_DELETE_DATA), headers=headers)
+
+    # if delete_request.status_code == 409:
+    #     print("Folder does not exist, continue to upload.")
+    # elif delete_request.status_code != requests.codes.ok:
+    #     print("Failed: delete folder from Dropbox: {errcode}".format(errcode=delete_request.status_code))
+    #     return None
+    # else:
+    #     print("Success deleted folder from Dropbox")
+
+    for root, dirs, files in os.walk(source_folder):
+        for filename in files:
+
+            # construct the full local path
+            local_path = os.path.join(root, filename)
+            print("File to upload: {path}".format(path=local_path))
+            # construct the full Dropbox path
+            relative_path = os.path.relpath(local_path, source_folder)
+            dropbox_path = os.path.join(dropbox_base_path, relative_path.replace("\\", "/"))
+            print("Dropbox path: {path}".format(path=dropbox_path))
+
+            # upload the file
+            # with open(local_path, 'rb') as f:
+            #     client.put_file(dropbox_path, f)
+
+            # Upload the file
+            DROPBOX_UPLOAD_ARGS['path'] = dropbox_path
+            headers = {'Authorization': 'Bearer ' + dropbox_token,
+                       'Dropbox-API-Arg': json.dumps(DROPBOX_UPLOAD_ARGS),
+                       'Content-Type': 'application/octet-stream'}
+
+            r = requests.post(DROPBOX_UPLOAD_URL, data=open(local_path, 'rb'), headers=headers)
+
+            if r.status_code != requests.codes.ok:
+                print("Failed: upload file to Dropbox:{errcode}".format(errcode=vars(r)))
+                return None
+
+    # TODO: return share url
+    #
+    # headers = {'Authorization': 'Bearer ' + dropbox_token,
+    #        'Content-Type': 'application/json'}
+    # DROPBOX_SHARE_DATA['path'] = dropbox_base_path
+    # # Share and return downloadable url
+    # r = requests.post(DROPBOX_SHARE_URL, data=json.dumps(DROPBOX_SHARE_DATA), headers=headers)
+    # if r.status_code != requests.codes.ok:
+    #     print("Failed: get share link from Dropbox {errcode}".format(errcode=vars(r)))
+    #     return None
+
+    # Replace the '0' at the end of the url with '1' for direct download
+    # return re.sub('dl=.*', 'raw=1', r.json()['url'])
+
+
 
 def send_email(zapier_hook, to, subject, body):
     '''Send email with zapier hook
@@ -246,37 +318,47 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--release.dir', dest='release_dir', help='path to release folder', required=True)
     parser.add_argument('--app.name', dest='app_name', help='app name that will be used as file name', required=True)
-    parser.add_argument('--changelog.file', dest='changelog_file', help='path to changelog file', required=True)
-    parser.add_argument('--template.file', dest='template_file', help='path to email template file', required=True)
+    parser.add_argument('--changelog.file', dest='changelog_file', help='path to changelog file', required=False)
+    parser.add_argument('--template.file', dest='template_file', help='path to email template file', required=False)
     parser.add_argument('--dropbox.token', dest='dropbox_token', help='dropbox access token', required=True)
     parser.add_argument('--dropbox.folder', dest='dropbox_folder', help='dropbox target folder', required=True)
-    parser.add_argument('--zapier.hook', dest='zapier_hook', help='zapier email web hook', required=True)
-    parser.add_argument('--email.to', dest='email_to', help='email recipients', required=True)
+    parser.add_argument('--dropbox.upload_folder', dest='dropbox_upload_folder', help='upload entire folder', required=False)
+    parser.add_argument('--zapier.hook', dest='zapier_hook', help='zapier email web hook', required=False)
+    parser.add_argument('--email.to', dest='email_to', help='email recipients', required=False)
 
     options = parser.parse_args()
 
-    # Extract app version and file
-    app_version, app_file = get_app(options.release_dir)
-    if app_version == None or app_file == None:
-        exit(OUTPUT_FILE_PARSING_ERROR)
-    
-    target_app_file = get_target_file_name(options.app_name, app_version)
+    print(options.dropbox_upload_folder)
 
-    # Upload app file and get shared url
-    file_url = upload_to_dropbox(target_app_file, app_file, options.dropbox_token, options.dropbox_folder)
-    if file_url == None:
-        exit(DROPBOX_ERROR_CODE)
+    if (options.dropbox_upload_folder == None):
+        # Extract app version and file
+        app_version, app_file = get_app(options.release_dir)
+        if app_version == None or app_file == None:
+            exit(OUTPUT_FILE_PARSING_ERROR)
+        
+        target_app_file = get_target_file_name(options.app_name, app_version)
+
+        # Upload app file and get shared url
+        file_url = upload_to_dropbox(target_app_file, app_file, options.dropbox_token, options.dropbox_folder)
+        if file_url == None:
+            exit(DROPBOX_ERROR_CODE)
+    else:
+        message = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder)
+        if folder_url == None:
+            exit(DROPBOX_ERROR_CODE)
     
-    # Extract latest changes
-    latest_changes = get_changes(options.changelog_file)
-    if latest_changes == None:
-        exit(CHANGES_ERROR_CODE)
+    if options.changelog_file != None:
+        # Extract latest changes
+        latest_changes = get_changes(options.changelog_file)
+        if latest_changes == None:
+            exit(CHANGES_ERROR_CODE)
     
-    # Compose email subject and body
-    subject, body = get_email(options.app_name, app_version, file_url, latest_changes, options.template_file)
-    if subject == None or body == None:
-        exit(TEMPLATE_ERROR_CODE)
-    
-    # Send email with release data
-    if not send_email(options.zapier_hook, options.email_to, subject, body):
-        exit(ZAPIER_ERROR_CODE)
+    if options.email_to != None:
+        # Compose email subject and body
+        subject, body = get_email(options.app_name, app_version, file_url, latest_changes, options.template_file)
+        if subject == None or body == None:
+            exit(TEMPLATE_ERROR_CODE)
+
+        # Send email with release data
+        if not send_email(options.zapier_hook, options.email_to, subject, body):
+            exit(ZAPIER_ERROR_CODE)
