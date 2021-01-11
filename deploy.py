@@ -142,7 +142,7 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
             print("File to upload: {path}".format(path=local_path))
             # construct the full Dropbox path
             relative_path = os.path.relpath(local_path, source_folder)
-            dropbox_path = os.path.join(dropbox_base_path, relative_path.replace("\\", "/"))
+            dropbox_path = os.path.join(dropbox_base_path, relative_path)
             print("Dropbox path: {path}".format(path=dropbox_path))
 
             # upload the file
