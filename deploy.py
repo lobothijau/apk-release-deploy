@@ -175,6 +175,8 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
     # Replace the '0' at the end of the url with '1' for direct download
     # return re.sub('dl=.*', 'raw=1', r.json()['url'])
 
+    # Currently return empty string to prevent the job flag to failed
+    return "" 
 
 
 def send_email(zapier_hook, to, subject, body):
