@@ -140,17 +140,20 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
             # construct the full local path
             local_path = os.path.join(root, filename)
             print("File to upload: {path}".format(path=local_path))
+            print("File to upload: {path}".format(path=filename))
             # construct the full Dropbox path
             relative_path = os.path.relpath(local_path, source_folder)
+            print("relative_path path: {path}".format(path=relative_path))
             dropbox_path = os.path.join(dropbox_base_path, relative_path)
             print("Dropbox path: {path}".format(path=dropbox_path))
+            print("Dropbox base path: {path}".format(path=dropbox_base_path))
 
             # upload the file
             # with open(local_path, 'rb') as f:
             #     client.put_file(dropbox_path, f)
 
             # Upload the file
-            DROPBOX_UPLOAD_ARGS['path'] = dropbox_path
+            DROPBOX_UPLOAD_ARGS['path'] = dropbox_base_path + filename
             headers = {'Authorization': 'Bearer ' + dropbox_token,
                        'Dropbox-API-Arg': json.dumps(DROPBOX_UPLOAD_ARGS),
                        'Content-Type': 'application/octet-stream'}
