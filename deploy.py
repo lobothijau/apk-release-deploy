@@ -34,20 +34,25 @@ DROPBOX_UPLOAD_ARGS = {
     'autorename': True,
     'strict_conflict': True
 }
-DROPBOX_UPLOAD_URL = 'https://content.dropboxapi.com/2/files/upload'
-
 DROPBOX_SHARE_DATA = {
     'path': None,
     'settings': {
         'requested_visibility': 'public'
     }
 }
-DROPBOX_SHARE_URL = 'https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings'
-
 DROPBOX_DELETE_DATA = {
     'path' : None
 }
+DROPBOX_CREATE_FOLDER_DATA = {
+    'path' : None
+}
+
+DROPBOX_UPLOAD_URL = 'https://content.dropboxapi.com/2/files/upload'
+DROPBOX_CREATE_FOLDER_URL = 'https://api.dropboxapi.com/2/files/create_folder_v2'
+DROPBOX_SHARE_URL = 'https://api.dropboxapi.com/2/sharing/create_shared_link_with_settings'
 DROPBOX_DELETE_URL = 'https://api.dropboxapi.com/2/files/delete_v2'
+
+
 
 ZAPIER_SEND_DATA = {
     'to': None,
@@ -115,6 +120,12 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
     Returns:
         str: Shared url for download.
     '''
+    headers = {'Authorization': 'Bearer ' + dropbox_token,
+               'Content-Type': 'application/json'}
+    DROPBOX_CREATE_FOLDER_DATA['path'] = '/'  + dropbox_folder
+    r = requests.post(DROPBOX_CREATE_FOLDER_URL, data=json.dumps(DROPBOX_CREATE_FOLDER_DATA), headers=headers)
+    if r.status_code != requests.codes.ok:
+        print("Failed: create folder on Dropbox:{errcode}".format(errcode=vars(r)))
 
     dropbox_base_path = '/{folder}/'.format(folder=dropbox_folder)
     # TODO: delete files (is it necessary?)
@@ -139,14 +150,11 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
 
             # construct the full local path
             local_path = os.path.join(root, filename)
-            print("File to upload: {path}".format(path=local_path))
-            print("File to upload: {path}".format(path=filename))
+            print("File path to upload: {path}".format(path=local_path))
+            print("File name to upload: {path}".format(path=filename))
             # construct the full Dropbox path
             relative_path = os.path.relpath(local_path, source_folder)
-            print("relative_path path: {path}".format(path=relative_path))
-            dropbox_path = os.path.join(dropbox_base_path, relative_path)
-            print("Dropbox path: {path}".format(path=dropbox_path))
-            print("Dropbox base path: {path}".format(path=dropbox_base_path))
+            dropbox_path = os.path.join(dropbox_base_path, relative_path) # absolute pth from folder to filename in dropbox
 
             # upload the file
             # with open(local_path, 'rb') as f:
