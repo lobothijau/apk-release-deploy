@@ -40,6 +40,9 @@ DROPBOX_SHARE_DATA = {
         'requested_visibility': 'public'
     }
 }
+DROPBOX_SHARE_FOLDER = {
+    'path': None,
+}
 DROPBOX_DELETE_DATA = {
     'path' : None
 }
@@ -94,7 +97,6 @@ def upload_to_dropbox(target_file_name, source_file, dropbox_token, dropbox_fold
 
     if r.status_code != requests.codes.ok:
         print("Failed: upload file to Dropbox: {errcode}".format(errcode=r.status_code))
-        return None
 
     headers = {'Authorization': 'Bearer ' + dropbox_token,
                'Content-Type': 'application/json'}
@@ -104,7 +106,6 @@ def upload_to_dropbox(target_file_name, source_file, dropbox_token, dropbox_fold
 
     if r.status_code != requests.codes.ok:
         print("Failed: get share link from Dropbox {errcode}".format(errcode=r.status_code))
-        return None
 
     # Replace the '0' at the end of the url with '1' for direct download
     return re.sub('dl=.*', 'raw=1', r.json()['url'])
@@ -151,7 +152,6 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
             # construct the full local path
             local_path = os.path.join(root, filename)
             print("File path to upload: {path}".format(path=local_path))
-            print("File name to upload: {path}".format(path=filename))
             # construct the full Dropbox path
             relative_path = os.path.relpath(local_path, source_folder)
             dropbox_path = os.path.join(dropbox_base_path, relative_path) # absolute pth from folder to filename in dropbox
@@ -170,24 +170,22 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
 
             if r.status_code != requests.codes.ok:
                 print("Failed: upload file to Dropbox:{errcode}".format(errcode=vars(r)))
-                return None
 
     # TODO: return share url
     #
-    # headers = {'Authorization': 'Bearer ' + dropbox_token,
-    #        'Content-Type': 'application/json'}
-    # DROPBOX_SHARE_DATA['path'] = dropbox_base_path
-    # # Share and return downloadable url
-    # r = requests.post(DROPBOX_SHARE_URL, data=json.dumps(DROPBOX_SHARE_DATA), headers=headers)
-    # if r.status_code != requests.codes.ok:
-    #     print("Failed: get share link from Dropbox {errcode}".format(errcode=vars(r)))
-    #     return None
+    headers = {'Authorization': 'Bearer ' + dropbox_token, 'Content-Type': 'application/json'}
+    DROPBOX_SHARE_FOLDER['path'] = dropbox_base_path
+    # Share and return downloadable url
+    r = requests.post("https://api.dropboxapi.com/2/sharing/share_folder", data=json.dumps(DROPBOX_SHARE_FOLDER), headers=headers)
+    shared_folder_url = ""
+    if r.status_code != requests.codes.ok:
+        print("Failed: get share link from Dropbox {message}".format(message=r.json()["error"]))
+        shared_folder_url = r.json()["error"]["bad_path"]['preview_url']
+    else:
+        print("Share url {url}".format(url=r.json()))
+        shared_folder_url = r.json()['preview_url']
 
-    # Replace the '0' at the end of the url with '1' for direct download
-    # return re.sub('dl=.*', 'raw=1', r.json()['url'])
-
-    # Currently return empty string to prevent the job flag to failed
-    return "" 
+    return shared_folder_url
 
 
 def send_email(zapier_hook, to, subject, body):
@@ -338,8 +336,11 @@ if __name__ == '__main__':
     parser.add_argument('--dropbox.upload_folder', dest='dropbox_upload_folder', help='upload entire folder', required=False)
     parser.add_argument('--zapier.hook', dest='zapier_hook', help='zapier email web hook', required=False)
     parser.add_argument('--email.to', dest='email_to', help='email recipients', required=False)
+    parser.add_argument('--slack.webhook', dest='slack_webhook', help='slack webhook url', required=False)
 
     options = parser.parse_args()
+
+    shared_folder_url = ""
 
     if (options.dropbox_upload_folder == None):
         # Extract app version and file
@@ -354,8 +355,8 @@ if __name__ == '__main__':
         if file_url == None:
             exit(DROPBOX_ERROR_CODE)
     else:
-        folder_url = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder)
-        if folder_url == None:
+        shared_folder_url = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder)
+        if shared_folder_url == None:
             exit(DROPBOX_ERROR_CODE)
     
     if options.changelog_file != None:
@@ -373,5 +374,18 @@ if __name__ == '__main__':
         # Send email with release data
         if not send_email(options.zapier_hook, options.email_to, subject, body):
             exit(ZAPIER_ERROR_CODE)
+
+    if options.slack_webhook != None:
+        slack_headers = {'Content-Type': 'application/json'}
+
+        json_data = {
+            "text": "Your apk is ready for `{project_branch}` on {url}".format(project_branch=options.dropbox_folder,url=shared_folder_url),
+        }
+        r = requests.post(options.slack_webhook, data=json.dumps(json_data), headers=slack_headers)
+
+        if r.status_code != requests.codes.ok:
+            print("Failed to send slack webhook:{errcode}".format(errcode=vars(r)))
+        else:
+            print("Slack message sent")
 
     exit()
