@@ -110,7 +110,7 @@ def upload_to_dropbox(target_file_name, source_file, dropbox_token, dropbox_fold
     # Replace the '0' at the end of the url with '1' for direct download
     return re.sub('dl=.*', 'raw=1', r.json()['url'])
 
-def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
+def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder, delete_folder):
     '''Upload file to dropbox
     
     Args:
@@ -121,6 +121,14 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder):
     Returns:
         str: Shared url for download.
     '''
+    if (delete_folder):
+        DROPBOX_DELETE_DATA['path'] = dropbox_folder
+        headers = {'Authorization': 'Bearer ' + dropbox_token,
+                'Content-Type': 'application/json'}
+        
+        requests.post(DROPBOX_DELETE_URL, data=json.dumps(DROPBOX_DELETE_DATA), headers=headers)
+
+
     headers = {'Authorization': 'Bearer ' + dropbox_token,
                'Content-Type': 'application/json'}
     DROPBOX_CREATE_FOLDER_DATA['path'] = '/'  + dropbox_folder
@@ -334,6 +342,7 @@ if __name__ == '__main__':
     parser.add_argument('--dropbox.token', dest='dropbox_token', help='dropbox access token', required=True)
     parser.add_argument('--dropbox.folder', dest='dropbox_folder', help='dropbox target folder', required=True)
     parser.add_argument('--dropbox.upload_folder', dest='dropbox_upload_folder', help='upload entire folder', required=False)
+    parser.add_argument('--dropbox.delete_folder', dest='dropbox_delete_folder', help='delete folder before every upload', required=False)
     parser.add_argument('--zapier.hook', dest='zapier_hook', help='zapier email web hook', required=False)
     parser.add_argument('--email.to', dest='email_to', help='email recipients', required=False)
     parser.add_argument('--slack.webhook', dest='slack_webhook', help='slack webhook url', required=False)
@@ -355,7 +364,11 @@ if __name__ == '__main__':
         if file_url == None:
             exit(DROPBOX_ERROR_CODE)
     else:
-        shared_folder_url = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder)
+        delete_folder = True
+        if (options.dropbox_delete_folder==None):
+            delete_folder = False
+
+        shared_folder_url = upload_to_dropbox(options.release_dir,options.dropbox_token, options.dropbox_folder, delete_folder)
         if shared_folder_url == None:
             exit(DROPBOX_ERROR_CODE)
     
