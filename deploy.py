@@ -122,12 +122,13 @@ def upload_to_dropbox(source_folder, dropbox_token, dropbox_folder, delete_folde
         str: Shared url for download.
     '''
     if (delete_folder):
-        DROPBOX_DELETE_DATA['path'] = dropbox_folder
+        DROPBOX_DELETE_DATA['path'] = '/' + dropbox_folder
         headers = {'Authorization': 'Bearer ' + dropbox_token,
                 'Content-Type': 'application/json'}
         
-        requests.post(DROPBOX_DELETE_URL, data=json.dumps(DROPBOX_DELETE_DATA), headers=headers)
-
+        r = requests.post(DROPBOX_DELETE_URL, data=json.dumps(DROPBOX_DELETE_DATA), headers=headers)
+        if r.status_code != requests.codes.ok:
+            print("Failed: create delete on Dropbox:{errcode}".format(errcode=vars(r)))
 
     headers = {'Authorization': 'Bearer ' + dropbox_token,
                'Content-Type': 'application/json'}
